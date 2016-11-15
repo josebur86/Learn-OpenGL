@@ -35,7 +35,10 @@ BINDFRAGDATALOCATION glBindFragDataLocation;
 
 //Textures
 typedef void (*GENERATEMIPMAP)(GLenum target);
+typedef void (*ACTIVETEXTURE)(GLenum texture);
+
 GENERATEMIPMAP glGenerateMipmap;
+ACTIVETEXTURE glActiveTexture;
 
 // Program
 typedef GLuint (*CREATEPROGRAM)(void);
@@ -62,9 +65,11 @@ typedef void (*ENABLEVERTEXATTRIBARRAY)(GLuint index);
 VERTEXATTRIBPOINTER glVertexAttribPointer;
 ENABLEVERTEXATTRIBARRAY glEnableVertexAttribArray;
 
+typedef void (*UNIFORM1I)(GLint location, GLint v0);
 typedef void (*UNIFORM3F)(GLint location, GLfloat v0, GLfloat v1, GLfloat v2);
 
 UNIFORM3F glUniform3f;
+UNIFORM1I glUniform1i;
 
 void InitOpenGLExtensions()
 {
@@ -87,6 +92,7 @@ void InitOpenGLExtensions()
 
     // Textures
     GET_FUNC(GENERATEMIPMAP, glGenerateMipmap);
+    GET_FUNC(ACTIVETEXTURE, glActiveTexture);
 
     // Program
     GET_FUNC(CREATEPROGRAM, glCreateProgram);
@@ -101,6 +107,7 @@ void InitOpenGLExtensions()
     GET_FUNC(VERTEXATTRIBPOINTER, glVertexAttribPointer);
     GET_FUNC(ENABLEVERTEXATTRIBARRAY, glEnableVertexAttribArray);
 
+    GET_FUNC(UNIFORM1I, glUniform1i);
     GET_FUNC(UNIFORM3F, glUniform3f);
 
 #undef GET_FUNC

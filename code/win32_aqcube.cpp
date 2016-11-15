@@ -96,11 +96,19 @@ struct loaded_image
     int PixelComponentCount;
     unsigned char *Data;
 };
-loaded_image DEBUGLoadImage(char *FileName)
+loaded_image DEBUGLoadImage(char *FileName, bool FlipVertically = false)
 {
     loaded_image Result = {};
 
+    if (FlipVertically)
+    {
+        stbi_set_flip_vertically_on_load(1);
+    }
     Result.Data = stbi_load(FileName, &Result.Width, &Result.Height, &Result.PixelComponentCount, 0);
+    if (FlipVertically)
+    {
+        stbi_set_flip_vertically_on_load(0);
+    }
     if (!Result.Data)
     {
         OutputDebugStringA(stbi_failure_reason());
@@ -167,110 +175,6 @@ static void Win32PaintBackBuffer(HDC DeviceContext, win32_back_buffer *BackBuffe
                   &BackBuffer->Info,
                   DIB_RGB_COLORS,
                   SRCCOPY);
-}
-
-static void InitSound(HWND Window, DWORD SamplesPerSec, DWORD BufferSize)
-{
-    DWORD Channels = 2;
-    WORD BitsPerSample = 16;
-    DWORD BlockAlign = Channels * (BitsPerSample / 8);
-    DWORD AvgBytesPerSec = SamplesPerSec * BlockAlign;
-
-    // Create the primary buffer
-    // Note(joe): This call can fail if there isn't an audio device at startup.
-    LPDIRECTSOUND DirectSound;
-    if (DirectSoundCreate(NULL, &DirectSound, NULL) == DS_OK)
-    {
-        if (DirectSound->SetCooperativeLevel(Window, DSSCL_PRIORITY) == DS_OK)
-        {
-            DSBUFFERDESC PrimaryBufferDescription = {};
-            PrimaryBufferDescription.dwSize = sizeof(PrimaryBufferDescription);
-            PrimaryBufferDescription.dwFlags = DSBCAPS_PRIMARYBUFFER;
-
-            LPDIRECTSOUNDBUFFER PrimaryBuffer;
-            if (DirectSound->CreateSoundBuffer(&PrimaryBufferDescription, &PrimaryBuffer, 0) == DS_OK)
-            {
-                OutputDebugStringA("Created the primary buffer.\n");
-
-                WAVEFORMATEX Format = {};
-                Format.wFormatTag = WAVE_FORMAT_PCM;
-                Format.nChannels = Channels;
-                Format.wBitsPerSample = BitsPerSample;
-                Format.nSamplesPerSec = SamplesPerSec;
-                Format.nBlockAlign = BlockAlign;
-                Format.nAvgBytesPerSec = AvgBytesPerSec;
-
-                PrimaryBuffer->SetFormat(&Format);
-
-                DSBUFFERDESC SecondaryBufferDescription = {};
-                SecondaryBufferDescription.dwSize = sizeof(SecondaryBufferDescription);
-                //SecondaryBufferDescription.dwFlags = 0;
-                SecondaryBufferDescription.dwBufferBytes = BufferSize;
-                SecondaryBufferDescription.lpwfxFormat = &Format;
-
-                HRESULT SecondaryBufferResult = DirectSound->CreateSoundBuffer(&SecondaryBufferDescription, &GlobalSecondaryBuffer, 0);
-                if (SecondaryBufferResult == DS_OK)
-                {
-                    HRESULT PlayResult = GlobalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
-                    OutputDebugStringA("Created the secondary buffer.\n");
-                }
-                else
-                {
-                    // TODO(joe): Diagnostics for when we can't create the primary buffer.
-                }
-            }
-            else
-            {
-                // TODO(joe): Diagnostics for when we can't create the primary buffer.
-            }
-        }
-        else
-        {
-            // TODO(joe): Handle failing to set the cooperative level.
-        }
-    }
-    else
-    {
-        // TODO(joe): Handle when the sound cannot be initialized.
-    }
-}
-
-static void Win32WriteToSoundBuffer(game_sound_buffer *SoundBuffer, win32_sound_output *SoundOutput, DWORD ByteToLock, DWORD BytesToWrite)
-{
-    void *AudioPointer1 = 0;
-    DWORD AudioBytes1 = 0;
-    void *AudioPointer2 = 0;
-    DWORD AudioBytes2 = 0;
-    assert((AudioBytes1 / SoundOutput->BytesPerSample) == 0);
-    assert((AudioBytes2 / SoundOutput->BytesPerSample) == 0);
-    if (GlobalSecondaryBuffer->Lock(ByteToLock, BytesToWrite,
-                &AudioPointer1, &AudioBytes1,
-                &AudioPointer2, &AudioBytes2,
-                0) == DS_OK)
-    {
-        int16 *Samples = SoundBuffer->Samples;
-
-        int16 *Sample = (int16 *)AudioPointer1;
-        int SamplesToWrite1 = AudioBytes1 / SoundOutput->BytesPerSample;
-        for (int SampleIndex = 0; SampleIndex < SamplesToWrite1; ++SampleIndex)
-        {
-            *Sample++ = *Samples++; // Left
-            *Sample++ = *Samples++; // Right
-
-            ++SoundOutput->RunningSamples;
-        }
-        Sample = (int16 *)AudioPointer2;
-        int SamplesToWrite2 = AudioBytes2 / SoundOutput->BytesPerSample;
-        for (int SampleIndex = 0; SampleIndex < SamplesToWrite2; ++SampleIndex)
-        {
-            *Sample++ = *Samples++; // Left
-            *Sample++ = *Samples++; // Right
-
-            ++SoundOutput->RunningSamples;
-        }
-
-        GlobalSecondaryBuffer->Unlock(AudioPointer1, AudioBytes1, AudioPointer2, AudioBytes2);
-    }
 }
 
 inline static LARGE_INTEGER Win32GetClock()
@@ -462,6 +366,23 @@ GLuint Win32CreateProgram(GLuint *Shaders, int ShaderCount)
     return ShaderProgram;
 }
 
+GLuint Win32CreateTexture(loaded_image Image, GLint SourcePixelFormat, GLenum TextureUnit)
+{
+    GLuint Texture;
+    glGenTextures(1, &Texture);
+    glActiveTexture(TextureUnit);
+    glBindTexture(GL_TEXTURE_2D, Texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, Image.Width, Image.Height, 0, SourcePixelFormat, GL_UNSIGNED_BYTE, Image.Data);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    return Texture;
+}
+
 int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLine, int ShowCode)
 {
     WNDCLASSA WindowClass = {};
@@ -487,9 +408,6 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                                       0);
         if (Window)
         {
-#if 1
-            // OpenGL tutorial land.
-            //
             HDC DeviceContext = GetDC(Window);
             HGLRC OpenGLContext = 0;
             if (DeviceContext)
@@ -506,7 +424,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                 }
             }
 
-            loaded_image Image = DEBUGLoadImage("container.jpg");
+
             // Init
             GLfloat Vertices[] = {
                 // Positions         // Colors          // Texture Coords
@@ -543,14 +461,13 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
             glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(Indices), Indices, GL_STATIC_DRAW);
 
             // Texture
-            GLuint Texture;
-            glGenTextures(1, &Texture);
-            glBindTexture(GL_TEXTURE_2D, Texture);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, Image.Width, Image.Height, 0, GL_RGB, GL_UNSIGNED_BYTE, Image.Data);
-            glGenerateMipmap(GL_TEXTURE_2D);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glBindTexture(GL_TEXTURE_2D, 0);
+            loaded_image Container = DEBUGLoadImage("container.jpg");
+            GLuint Texture1 = Win32CreateTexture(Container, GL_RGB, GL_TEXTURE0);
+            DEBUGFreeImage(Container);
+
+            loaded_image Face = DEBUGLoadImage("awesomeface.png", true);
+            GLuint Texture2 = Win32CreateTexture(Face, GL_RGBA, GL_TEXTURE1);
+            DEBUGFreeImage(Face);
 
             glBindVertexArray(0);
 
@@ -570,7 +487,14 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                 glClear(GL_COLOR_BUFFER_BIT);
 
                 glUseProgram(ShaderProgram);
-                glBindTexture(GL_TEXTURE_2D, Texture);
+
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, Texture1);
+                glUniform1i(glGetUniformLocation(ShaderProgram, "ourTexture1"), 0);
+                glActiveTexture(GL_TEXTURE1);
+                glBindTexture(GL_TEXTURE_2D, Texture2);
+                glUniform1i(glGetUniformLocation(ShaderProgram, "ourTexture2"), 1);
+
                 glBindVertexArray(VAO);
                 glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
                 glBindVertexArray(0);
@@ -580,140 +504,10 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                 SwapBuffers(DeviceContext);
             }
 
-            DEBUGFreeImage(Image);
 
             wglMakeCurrent(0, 0);
             wglDeleteContext(OpenGLContext);
             DeleteDC(DeviceContext);
-#else
-            game_memory Memory = {};
-            Memory.PermanentStorageSize = Megabytes(64);
-            Memory.PermanentStorage = VirtualAlloc(0, Memory.PermanentStorageSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-            Memory.TransientStorageSize = Gigabytes((uint64)4);
-            Memory.TransientStorage = VirtualAlloc(0, Memory.TransientStorageSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-
-            if(Memory.PermanentStorage && Memory.TransientStorage)
-            {
-                QueryPerformanceFrequency(&GlobalPerfFrequencyCount);
-
-                Win32ResizeBackBuffer(&GlobalBackBuffer, 960, 540);
-
-                win32_sound_output SoundOutput = {};
-                SoundOutput.SamplesPerSec = 44100;
-                SoundOutput.BytesPerSample = 2*sizeof(int16);
-                SoundOutput.BufferSize = SoundOutput.SamplesPerSec * SoundOutput.BytesPerSample;
-                SoundOutput.LatencySampleCount = SoundOutput.SamplesPerSec / 15;
-
-                SoundOutput.ToneVolume = 1600;
-                InitSound(Window, SoundOutput.SamplesPerSec, SoundOutput.BufferSize);
-
-                UINT TimerResolutionMS = 1;
-                bool TimeIsGranular = timeBeginPeriod(TimerResolutionMS) == TIMERR_NOERROR;
-
-                int MonitorHz = 60;
-                int GameUpdateHz = 30;
-                float TargetFrameSeconds = 1.0f / (float)GameUpdateHz;
-
-                game_controller_input Input = {};
-
-                LARGE_INTEGER LastFrameCount = Win32GetClock();
-                GlobalRunning = true;
-                while(GlobalRunning)
-                {
-                    Win32ProcessPendingMessages(&Input);
-
-                    DWORD PlayCursor = 0;
-                    DWORD WriteCursor = 0;
-                    DWORD ByteToLock = 0;
-                    DWORD BytesToWrite = 0;
-                    bool OutputSound = false;
-                    if (GlobalSecondaryBuffer && GlobalSecondaryBuffer->GetCurrentPosition(&PlayCursor, &WriteCursor) == DS_OK)
-                    {
-                        OutputSound = true;
-
-                        ByteToLock = (SoundOutput.RunningSamples * SoundOutput.BytesPerSample) % SoundOutput.BufferSize;
-                        DWORD TargetCursor = (PlayCursor + (SoundOutput.LatencySampleCount * SoundOutput.BytesPerSample)) % SoundOutput.BufferSize;
-                        if (ByteToLock > TargetCursor)
-                        {
-                            BytesToWrite = (SoundOutput.BufferSize - ByteToLock) + TargetCursor;
-                        }
-                        else
-                        {
-                            BytesToWrite = TargetCursor - ByteToLock;
-                        }
-#if 0
-                        char SoundCursorString[255];
-                        snprintf(SoundCursorString, 255, "Play Cursor: %i RunningSamples: %i ByteToLock: %i BytesToWrite: %i\n", PlayCursor, SoundOutput.RunningSamples, ByteToLock, BytesToWrite);
-                        OutputDebugStringA(SoundCursorString);
-#endif
-                    }
-
-                    game_back_buffer BackBuffer = {};
-                    BackBuffer.Memory = GlobalBackBuffer.Memory;
-                    BackBuffer.Width = GlobalBackBuffer.Width;
-                    BackBuffer.Height = GlobalBackBuffer.Height;
-                    BackBuffer.Pitch = GlobalBackBuffer.Pitch;
-                    BackBuffer.BytesPerPixel = GlobalBackBuffer.BytesPerPixel;
-
-                    game_sound_buffer SoundBuffer = {};
-                    // TODO(joe): We should only need to allocate this block of memory once instead
-                    // of on every frame.
-                    SoundBuffer.Samples = (int16 *)VirtualAlloc(0, SoundOutput.BufferSize,
-                                                                MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-                    SoundBuffer.SampleCount = BytesToWrite / SoundOutput.BytesPerSample;
-                    SoundBuffer.ToneVolume = SoundOutput.ToneVolume;
-                    SoundBuffer.SamplesPerSec = SoundOutput.SamplesPerSec;
-                    UpdateGameAndRender(&Memory, &BackBuffer, &SoundBuffer, &Input);
-
-                    if (OutputSound)
-                    {
-                        Win32WriteToSoundBuffer(&SoundBuffer, &SoundOutput, ByteToLock, BytesToWrite);
-                    }
-                    VirtualFree(SoundBuffer.Samples, 0, MEM_RELEASE);
-#if 0
-                    LARGE_INTEGER FrameCount = Win32GetClock();
-                    float ElapsedTime = Win32GetElapsedSeconds(LastFrameCount, FrameCount);
-                    if (ElapsedTime < TargetFrameSeconds)
-                    {
-                        DWORD TimeToSleep = (DWORD)(1000.0f * (TargetFrameSeconds - ElapsedTime));
-                        if (TimeIsGranular)
-                        {
-                            if (TimeToSleep > 0)
-                            {
-                                Sleep(TimeToSleep);
-                            }
-                        }
-
-                        ElapsedTime = Win32GetElapsedSeconds(LastFrameCount, Win32GetClock());
-                        while (ElapsedTime < TargetFrameSeconds)
-                        {
-                            ElapsedTime = Win32GetElapsedSeconds(LastFrameCount, Win32GetClock());
-                        }
-                    }
-                    else
-                    {
-                        // TODO(joe): Log that we missed a frame.
-                    }
-#endif
-
-                    LARGE_INTEGER EndCount = Win32GetClock();
-
-#if 1
-                    char FrameTimeString[255];
-                    float MSPerFrame = 1000.0f * Win32GetElapsedSeconds(LastFrameCount, EndCount);
-                    float FPS = 1000.0f / MSPerFrame;
-                    snprintf(FrameTimeString, 255, "ms/f: %.2f f/s: %.2f \n", MSPerFrame, FPS);
-                    OutputDebugStringA(FrameTimeString);
-#endif
-                    LastFrameCount = EndCount;
-
-                    // TODO(joe): Weird issue: After the app is out of focus for a while the DeviceContext
-                    // becomes NULL and we can no longer paint to the screen. WM_APPACTIVATE?
-                    HDC DeviceContext = GetDC(Window);
-                    Win32PaintBackBuffer(DeviceContext, &GlobalBackBuffer);
-                }
-            }
-#endif
         }
     }
 
