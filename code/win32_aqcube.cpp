@@ -12,7 +12,13 @@
 #include <cstdio>
 #include <cmath>
 
+#include "glm/glm.hpp"
+#include "glm/gtc/matrix_transform.hpp"
+#include "glm/gtc/type_ptr.hpp"
+
 #define PI32 3.14159265359f
+
+#define DEG_TO_RAD(VALUE) ((VALUE)*(PI32/180.0f))
 
 typedef int8_t int8;
 typedef int16_t int16;
@@ -394,20 +400,24 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
 
     if(RegisterClassA(&WindowClass))
     {
+        int ScreenWidth = 800;
+        int ScreenHeight = 600;
         HWND Window = CreateWindowEx( 0,
                                       WindowClass.lpszClassName,
                                       "Adequate Cube",
                                       WS_OVERLAPPEDWINDOW | WS_VISIBLE,
                                       CW_USEDEFAULT,
                                       CW_USEDEFAULT,
-                                      800, //CW_USEDEFAULT,
-                                      600, //CW_USEDEFAULT,
+                                      ScreenWidth, //CW_USEDEFAULT,
+                                      ScreenHeight, //CW_USEDEFAULT,
                                       0,
                                       0,
                                       Instance,
                                       0);
         if (Window)
         {
+            QueryPerformanceFrequency(&GlobalPerfFrequencyCount);
+
             HDC DeviceContext = GetDC(Window);
             HGLRC OpenGLContext = 0;
             if (DeviceContext)
@@ -426,12 +436,51 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
 
 
             // Init
+            glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+            glEnable(GL_DEPTH_TEST);
+
             GLfloat Vertices[] = {
-                // Positions         // Colors          // Texture Coords
-                0.5f,  0.5f, 0.0f,  1.0f, 0.0f, 0.0f,  1.0f, 1.0f,     // Top Right
-                0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,  1.0f, 0.0f,     // Bottom Right
-                -0.5f, -0.5f, 0.0f,  0.0f, 0.0f, 1.0f,  0.0f, 0.0f,     // Bottom Left
-                -0.5f,  0.5f, 0.0f,  1.0f, 1.0f, 0.0f,  0.0f, 1.0f,     // Top Left
+                 -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+                  0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
+                  0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+                  0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+                 -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+                 -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+
+                 -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+                  0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+                  0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+                  0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+                 -0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
+                 -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+
+                 -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+                 -0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+                 -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+                 -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+                 -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+                 -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+
+                 0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+                 0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+                 0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+                 0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+                 0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+                 0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+
+                 -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+                  0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
+                  0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+                  0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+                 -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+                 -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+
+                 -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+                  0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+                  0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+                  0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+                 -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
+                 -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
             };
             GLuint Indices[] = {
                 0, 1, 3,    // First triangle
@@ -447,18 +496,16 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
             glGenBuffers(1, &VBO);
             glBindBuffer(GL_ARRAY_BUFFER, VBO);
             glBufferData(GL_ARRAY_BUFFER, sizeof(Vertices), Vertices, GL_STATIC_DRAW);
-            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8*sizeof(GLfloat), 0);
-            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8*sizeof(GLfloat), (GLvoid *)(3*sizeof(GLfloat)));
-            glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8*sizeof(GLfloat), (GLvoid *)(6*sizeof(GLfloat)));
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5*sizeof(GLfloat), 0);
+            glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5*sizeof(GLfloat), (GLvoid *)(3*sizeof(GLfloat)));
             glEnableVertexAttribArray(0);
             glEnableVertexAttribArray(1);
-            glEnableVertexAttribArray(2);
 
             // VBO: Vertex Buffer Object
-            GLuint EBO;
-            glGenBuffers(1, &EBO);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-            glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(Indices), Indices, GL_STATIC_DRAW);
+            //GLuint EBO;
+            //glGenBuffers(1, &EBO);
+            //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+            //glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(Indices), Indices, GL_STATIC_DRAW);
 
             // Texture
             loaded_image Container = DEBUGLoadImage("container.jpg");
@@ -477,14 +524,26 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
             GLuint Shaders[] = { VertexShader, FragmentShader };
             GLuint ShaderProgram = Win32CreateProgram(Shaders, ArrayCount(Shaders));
 
+            LARGE_INTEGER StartTime = Win32GetClock();
+
             game_controller_input Input = {};
             GlobalRunning = OpenGLContext != 0;
             while(GlobalRunning)
             {
                 Win32ProcessPendingMessages(&Input);
 
-                glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-                glClear(GL_COLOR_BUFFER_BIT);
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+                float t = Win32GetElapsedSeconds(StartTime, Win32GetClock());
+
+                glm::mat4 Model;
+                Model = glm::rotate(Model, DEG_TO_RAD(t * 50.0f), glm::vec3(0.5f, 1.0f, 0.0f));
+
+                glm::mat4 View;
+                View = glm::translate(View, glm::vec3(0.0f, 0.0f, -3.0f));
+
+                glm::mat4 Projection;
+                Projection = glm::perspective(DEG_TO_RAD(45.0f), (float)ScreenWidth/(float)ScreenHeight, 0.01f, 100.0f);
 
                 glUseProgram(ShaderProgram);
 
@@ -495,8 +554,18 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                 glBindTexture(GL_TEXTURE_2D, Texture2);
                 glUniform1i(glGetUniformLocation(ShaderProgram, "ourTexture2"), 1);
 
+                GLuint ModelLoc = glGetUniformLocation(ShaderProgram, "model");
+                glUniformMatrix4fv(ModelLoc, 1, GL_FALSE, glm::value_ptr(Model));
+
+                GLuint ViewLoc = glGetUniformLocation(ShaderProgram, "view");
+                glUniformMatrix4fv(ViewLoc, 1, GL_FALSE, glm::value_ptr(View));
+
+                GLuint ProjectionLoc = glGetUniformLocation(ShaderProgram, "projection");
+                glUniformMatrix4fv(ProjectionLoc, 1, GL_FALSE, glm::value_ptr(Projection));
+
                 glBindVertexArray(VAO);
-                glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+                //glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+                glDrawArrays(GL_TRIANGLES, 0, 36);
                 glBindVertexArray(0);
                 glBindTexture(GL_TEXTURE_2D, 0);
                 glUseProgram(0);
