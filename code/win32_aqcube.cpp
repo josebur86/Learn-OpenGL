@@ -482,6 +482,19 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                  -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
                  -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
             };
+            glm::vec3 CubePositions[] = {
+                glm::vec3( 0.0f,  0.0f,  0.0f),
+                glm::vec3( 2.0f,  5.0f, -15.0f),
+                glm::vec3(-1.5f, -2.2f, -2.5f),
+                glm::vec3(-3.8f, -2.0f, -12.3f),
+                glm::vec3( 2.4f, -0.4f, -3.5f),
+                glm::vec3(-1.7f,  3.0f, -7.5f),
+                glm::vec3( 1.3f, -2.0f, -2.5f),
+                glm::vec3( 1.5f,  2.0f, -2.5f),
+                glm::vec3( 1.5f,  0.2f, -1.5f),
+                glm::vec3(-1.3f,  1.0f, -1.5f)
+            };
+
             GLuint Indices[] = {
                 0, 1, 3,    // First triangle
                 1, 2, 3     // Second triangle
@@ -528,22 +541,39 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
 
             game_controller_input Input = {};
             GlobalRunning = OpenGLContext != 0;
+
+            float ViewX = 0.0f;
+            float ViewZ = -3.0f;
+
             while(GlobalRunning)
             {
                 Win32ProcessPendingMessages(&Input);
+                if (Input.Left.IsDown)
+                {
+                    ViewX += 0.5f;
+                }
+                if (Input.Right.IsDown)
+                {
+                    ViewX -= 0.5f;
+                }
+                if (Input.Up.IsDown)
+                {
+                    ViewZ += 0.5f;
+                }
+                if (Input.Down.IsDown)
+                {
+                    ViewZ -= 0.5f;
+                }
 
                 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
                 float t = Win32GetElapsedSeconds(StartTime, Win32GetClock());
 
-                glm::mat4 Model;
-                Model = glm::rotate(Model, DEG_TO_RAD(t * 50.0f), glm::vec3(0.5f, 1.0f, 0.0f));
-
                 glm::mat4 View;
-                View = glm::translate(View, glm::vec3(0.0f, 0.0f, -3.0f));
+                View = glm::translate(View, glm::vec3(ViewX, 0.0f, ViewZ));
 
                 glm::mat4 Projection;
-                Projection = glm::perspective(DEG_TO_RAD(45.0f), (float)ScreenWidth/(float)ScreenHeight, 0.01f, 100.0f);
+                Projection = glm::perspective(DEG_TO_RAD(45), (float)ScreenWidth/(float)ScreenHeight, 0.01f, 100.0f);
 
                 glUseProgram(ShaderProgram);
 
@@ -555,17 +585,27 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                 glUniform1i(glGetUniformLocation(ShaderProgram, "ourTexture2"), 1);
 
                 GLuint ModelLoc = glGetUniformLocation(ShaderProgram, "model");
-                glUniformMatrix4fv(ModelLoc, 1, GL_FALSE, glm::value_ptr(Model));
-
                 GLuint ViewLoc = glGetUniformLocation(ShaderProgram, "view");
-                glUniformMatrix4fv(ViewLoc, 1, GL_FALSE, glm::value_ptr(View));
-
                 GLuint ProjectionLoc = glGetUniformLocation(ShaderProgram, "projection");
+
+                glUniformMatrix4fv(ViewLoc, 1, GL_FALSE, glm::value_ptr(View));
                 glUniformMatrix4fv(ProjectionLoc, 1, GL_FALSE, glm::value_ptr(Projection));
 
                 glBindVertexArray(VAO);
-                //glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-                glDrawArrays(GL_TRIANGLES, 0, 36);
+                for (int i = 0; i < ArrayCount(CubePositions); ++i)
+                {
+                    glm::mat4 Model;
+                    Model = glm::translate(Model, CubePositions[i]);
+                    float Angle = 20.0f * i;
+                    if (i % 3 == 0)
+                    {
+                        Angle = t * 50.0f;
+                    }
+                    Model = glm::rotate(Model, DEG_TO_RAD(Angle), glm::vec3(1.0f, 0.3f, 0.5f));
+                    glUniformMatrix4fv(ModelLoc, 1, GL_FALSE, glm::value_ptr(Model));
+
+                    glDrawArrays(GL_TRIANGLES, 0, 36);
+                }
                 glBindVertexArray(0);
                 glBindTexture(GL_TEXTURE_2D, 0);
                 glUseProgram(0);
