@@ -1,4 +1,5 @@
 #include <windows.h>
+#include <windowsx.h>
 #include <dsound.h>
 
 #include <GL\gl.h>
@@ -243,6 +244,9 @@ static void Win32ProcessButtonState(button_state *Button, bool IsDown)
     Button->IsDown = IsDown;
 }
 
+int GlobalLastMouseX = -1;
+int GlobalLastMouseY = -1;
+
 static void Win32ProcessPendingMessages(game_controller_input *Input)
 {
     // Process the message pump.
@@ -281,6 +285,11 @@ static void Win32ProcessPendingMessages(game_controller_input *Input)
                             Win32ProcessButtonState(&Input->Right, IsDown);
                         }
                     }
+                } break;
+            case WM_MOUSEMOVE:
+                {
+                    Input->Mouse.x = GET_X_LPARAM(Message.lParam);
+                    Input->Mouse.y = GET_Y_LPARAM(Message.lParam);
                 } break;
             default:
                 {
@@ -418,6 +427,13 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
         {
             QueryPerformanceFrequency(&GlobalPerfFrequencyCount);
 
+            RECT ClipRect;
+            RECT PreviousClipRect;
+            GetClipCursor(&PreviousClipRect);
+            GetWindowRect(Window, &ClipRect);
+            ClipCursor(&ClipRect);
+            ShowCursor( 0 );
+
             HDC DeviceContext = GetDC(Window);
             HGLRC OpenGLContext = 0;
             if (DeviceContext)
@@ -542,35 +558,69 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
             game_controller_input Input = {};
             GlobalRunning = OpenGLContext != 0;
 
-            float ViewX = 0.0f;
-            float ViewZ = -3.0f;
+            glm::vec3 CameraPos(0.0f, 0.0f, 3.0f);
+            glm::vec3 CameraFront(0.0f, 0.0f, -1.0f);
+            glm::vec3 CameraUp(0.0f, 1.0f, 0.0f);
+
+            float Pitch = 0.0f;
+            float Yaw = -90.0f;
 
             while(GlobalRunning)
             {
                 Win32ProcessPendingMessages(&Input);
-                if (Input.Left.IsDown)
-                {
-                    ViewX += 0.5f;
-                }
-                if (Input.Right.IsDown)
-                {
-                    ViewX -= 0.5f;
-                }
+
+                float CameraSpeed = 0.05f;
                 if (Input.Up.IsDown)
                 {
-                    ViewZ += 0.5f;
+                    CameraPos += CameraSpeed * CameraFront;
                 }
                 if (Input.Down.IsDown)
                 {
-                    ViewZ -= 0.5f;
+                    CameraPos -= CameraSpeed * CameraFront;
                 }
+                if (Input.Left.IsDown)
+                {
+                    CameraPos -= glm::normalize(glm::cross(CameraFront, CameraUp)) * CameraSpeed;
+                }
+                if (Input.Right.IsDown)
+                {
+                    CameraPos += glm::normalize(glm::cross(CameraFront, CameraUp)) * CameraSpeed;
+                }
+
+                if (GlobalLastMouseX < 0)
+                    GlobalLastMouseX = Input.Mouse.x;
+                if (GlobalLastMouseY < 0)
+                    GlobalLastMouseY = Input.Mouse.y;
+
+                float Sensitivity = 0.1f;
+                float XOffset = (Input.Mouse.x - GlobalLastMouseX) * Sensitivity;
+                float YOffset = (GlobalLastMouseY - Input.Mouse.y) * Sensitivity;
+                GlobalLastMouseX = Input.Mouse.x;
+                GlobalLastMouseY = Input.Mouse.y;
+
+                Yaw += XOffset;
+                Pitch += YOffset;
+                if (Pitch > 89.0f)
+                {
+                    Pitch = 89.0f;
+                }
+                if (Pitch < -89.0f)
+                {
+                    Pitch = -89.0f;
+                }
+
+                glm::vec3 Front;
+                Front.x = cos(DEG_TO_RAD(Pitch)) * cos(DEG_TO_RAD(Yaw));
+                Front.y = sin(DEG_TO_RAD(Pitch));
+                Front.z = cos(DEG_TO_RAD(Pitch)) * sin(DEG_TO_RAD(Yaw));
+                CameraFront = glm::normalize(Front);
 
                 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
                 float t = Win32GetElapsedSeconds(StartTime, Win32GetClock());
 
                 glm::mat4 View;
-                View = glm::translate(View, glm::vec3(ViewX, 0.0f, ViewZ));
+                View = glm::lookAt(CameraPos, CameraPos + CameraFront, CameraUp);
 
                 glm::mat4 Projection;
                 Projection = glm::perspective(DEG_TO_RAD(45), (float)ScreenWidth/(float)ScreenHeight, 0.01f, 100.0f);
@@ -617,6 +667,8 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
             wglMakeCurrent(0, 0);
             wglDeleteContext(OpenGLContext);
             DeleteDC(DeviceContext);
+
+            ClipCursor(&PreviousClipRect);
         }
     }
 

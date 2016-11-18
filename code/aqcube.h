@@ -34,12 +34,19 @@ struct button_state
 {
     bool IsDown;
 };
+struct mouse_position
+{
+    int x;
+    int y;
+};
 struct game_controller_input
 {
     button_state Up;
     button_state Down;
     button_state Left;
     button_state Right;
+
+    mouse_position Mouse;
 };
 struct game_back_buffer
 {
