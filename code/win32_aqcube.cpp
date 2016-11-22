@@ -32,6 +32,7 @@ typedef uint32_t uint32;
 typedef uint64_t uint64;
 
 #include "aqcube.cpp"
+#include "win32_aqcube_opengl.cpp"
 
 struct win32_back_buffer
 {
@@ -41,17 +42,6 @@ struct win32_back_buffer
     int Height;
     int Pitch;
     int BytesPerPixel;
-};
-
-struct win32_sound_output
-{
-    DWORD BytesPerSample;
-    WORD SamplesPerSec;
-    DWORD BufferSize;
-
-    uint32 RunningSamples;
-    int LatencySampleCount;
-    int16 ToneVolume;
 };
 
 void *ReadFile(char *Filename)
@@ -96,13 +86,6 @@ void FreeMemory(void *Memory)
     }
 }
 
-struct loaded_image
-{
-    int Width;
-    int Height;
-    int PixelComponentCount;
-    unsigned char *Data;
-};
 loaded_image DEBUGLoadImage(char *FileName, bool FlipVertically = false)
 {
     loaded_image Result = {};
@@ -134,55 +117,7 @@ void DEBUGFreeImage(loaded_image Image)
 }
 
 static bool GlobalRunning = true;
-
-static win32_back_buffer GlobalBackBuffer;
-static LPDIRECTSOUNDBUFFER GlobalSecondaryBuffer;
 static LARGE_INTEGER GlobalPerfFrequencyCount;
-
-static void Win32ResizeBackBuffer(win32_back_buffer *Buffer, int Width, int Height)
-{
-    // TODO(joe): There is some concern that the VirtualAlloc could fail which
-    // would leave us without a buffer. See if there's a better way to handle
-    // this memory reallocation.
-    if (Buffer->Memory)
-    {
-        VirtualFree(Buffer->Memory, 0, MEM_RELEASE);
-    }
-
-    Buffer->Width = Width;
-    Buffer->Height = Height;
-
-    Buffer->BytesPerPixel = 4;
-
-    Buffer->Info.bmiHeader.biSize = sizeof(Buffer->Info.bmiHeader);
-    Buffer->Info.bmiHeader.biWidth = Buffer->Width;
-    Buffer->Info.bmiHeader.biHeight = Buffer->Height;
-    // TODO(joe): Treat the buffer as top-down for now. It might be better to
-    // treat the back buffer as bottom up in the future.
-    Buffer->Info.bmiHeader.biHeight = -Buffer->Height;
-    Buffer->Info.bmiHeader.biPlanes = 1;
-    Buffer->Info.bmiHeader.biBitCount = 32;
-    Buffer->Info.bmiHeader.biCompression = BI_RGB; // Uncompressed: The value for blue is in the least significant 8 bits, followed by 8 bits each for green and red.
-                                                   // BB GG RR XX
-                                                   //
-    Buffer->Pitch = Buffer->Width * Buffer->BytesPerPixel;
-    int BufferMemorySize = Buffer->Height * Buffer->Width * Buffer->BytesPerPixel;
-    Buffer->Memory = VirtualAlloc(0, BufferMemorySize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-}
-static void Win32PaintBackBuffer(HDC DeviceContext, win32_back_buffer *BackBuffer)
-{
-    int OffsetX = 10;
-    int OffsetY = 10;
-
-    // Note(joe): For right now, I'm just going to blit the buffer as-is without any stretching.
-    StretchDIBits(DeviceContext,
-                  OffsetX, OffsetY, BackBuffer->Width, BackBuffer->Height, // Destination
-                  0, 0, BackBuffer->Width, BackBuffer->Height, // Source
-                  BackBuffer->Memory,
-                  &BackBuffer->Info,
-                  DIB_RGB_COLORS,
-                  SRCCOPY);
-}
 
 inline static LARGE_INTEGER Win32GetClock()
 {
@@ -208,24 +143,6 @@ static LRESULT CALLBACK Win32MainCallWindowCallback(HWND Window, UINT Message, W
         case WM_DESTROY:
         {
             GlobalRunning = false;
-        } break;
-        case WM_PAINT:
-        {
-            OutputDebugStringA("Paint\n");
-
-            PAINTSTRUCT Paint;
-            HDC DeviceContext = BeginPaint(Window, &Paint);
-
-            // Clear the entire client window to black.
-            RECT ClientRect;
-            GetClientRect(Window, &ClientRect);
-            int ClientWidth = ClientRect.right - ClientRect.left;
-            int ClientHeight = ClientRect.bottom - ClientRect.top;
-            PatBlt(DeviceContext, 0, 0, ClientWidth, ClientHeight, BLACKNESS);
-
-            Win32PaintBackBuffer(DeviceContext, &GlobalBackBuffer);
-
-            EndPaint(Window, &Paint);
         } break;
         default:
         {
@@ -298,104 +215,6 @@ static void Win32ProcessPendingMessages(game_controller_input *Input)
                 } break;
         }
     }
-}
-
-static HGLRC Win32InitializeOpenGL(HDC DeviceContext)
-{
-    HGLRC Result = 0;
-
-    PIXELFORMATDESCRIPTOR PixelFormat = {};
-    PixelFormat.nSize = sizeof(PIXELFORMATDESCRIPTOR);
-    PixelFormat.nVersion = 1;
-    PixelFormat.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
-    PixelFormat.iPixelType = PFD_TYPE_RGBA;
-    PixelFormat.cColorBits = 24;
-    // PixelFormat.cDepthBits = ?;
-    // PixelFormat.cStencilBits = ?;
-
-    int PixelFormatIndex = ChoosePixelFormat(DeviceContext, &PixelFormat);
-    if(SetPixelFormat(DeviceContext, PixelFormatIndex, &PixelFormat))
-    {
-        Result = wglCreateContext(DeviceContext);
-    }
-
-
-    return Result;
-}
-
-GLuint Win32CompileShader(GLenum ShaderType, char *ShaderFile)
-{
-    GLuint Shader = 0;
-
-    const GLchar *ShaderSource = (GLchar *)ReadFile(ShaderFile);
-    if (ShaderSource)
-    {
-        Shader = glCreateShader(ShaderType);
-        glShaderSource(Shader, 1, &ShaderSource, 0);
-        glCompileShader(Shader);
-
-        GLint CompileStatus;
-        glGetShaderiv(Shader, GL_COMPILE_STATUS, &CompileStatus);
-
-        if (CompileStatus == GL_TRUE)
-        {
-            char Log[512];
-            glGetShaderInfoLog(Shader, 512, 0, Log);
-            OutputDebugStringA(Log);
-        }
-    }
-
-    assert(Shader);
-    return Shader;
-}
-
-GLuint Win32CreateProgram(GLuint *Shaders, int ShaderCount)
-{
-    GLuint ShaderProgram = glCreateProgram();
-
-    if (ShaderProgram)
-    {
-        for (int ShaderIndex = 0; ShaderIndex < ShaderCount; ++ShaderIndex)
-        {
-            GLuint Shader = Shaders[ShaderIndex];
-            glAttachShader(ShaderProgram, Shader);
-        }
-        glLinkProgram(ShaderProgram);
-
-        GLint Success;
-        glGetProgramiv(ShaderProgram, GL_LINK_STATUS, &Success);
-        if (!Success)
-        {
-            char Log[512];
-            glGetProgramInfoLog(ShaderProgram, 512, NULL, Log);
-            OutputDebugStringA(Log);
-        }
-
-        for (int ShaderIndex = 0; ShaderIndex < ShaderCount; ++ShaderIndex)
-        {
-            GLuint Shader = Shaders[ShaderIndex];
-            glDeleteShader(Shader);
-        }
-    }
-
-    return ShaderProgram;
-}
-
-GLuint Win32CreateTexture(loaded_image Image, GLint SourcePixelFormat, GLenum TextureUnit)
-{
-    GLuint Texture;
-    glGenTextures(1, &Texture);
-    glActiveTexture(TextureUnit);
-    glBindTexture(GL_TEXTURE_2D, Texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, Image.Width, Image.Height, 0, SourcePixelFormat, GL_UNSIGNED_BYTE, Image.Data);
-    glGenerateMipmap(GL_TEXTURE_2D);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    glBindTexture(GL_TEXTURE_2D, 0);
-
-    return Texture;
 }
 
 int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLine, int ShowCode)

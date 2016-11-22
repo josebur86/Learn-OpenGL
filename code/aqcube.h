@@ -30,6 +30,14 @@ struct game_state
     int ToneHz;
 };
 
+struct loaded_image
+{
+    int Width;
+    int Height;
+    int PixelComponentCount;
+    unsigned char *Data;
+};
+
 struct button_state
 {
     bool IsDown;
