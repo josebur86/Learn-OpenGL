@@ -331,51 +331,51 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
 
 
             // Init
-            glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+            glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
             glEnable(GL_DEPTH_TEST);
 
             GLfloat Vertices[] = {
-                 -0.5f, -0.5f, -0.5f,
-                  0.5f, -0.5f, -0.5f,
-                  0.5f,  0.5f, -0.5f,
-                  0.5f,  0.5f, -0.5f,
-                 -0.5f,  0.5f, -0.5f,
-                 -0.5f, -0.5f, -0.5f,
+                -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+                 0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+                 0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+                 0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+                -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+                -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
 
-                 -0.5f, -0.5f,  0.5f,
-                  0.5f, -0.5f,  0.5f,
-                  0.5f,  0.5f,  0.5f,
-                  0.5f,  0.5f,  0.5f,
-                 -0.5f,  0.5f,  0.5f,
-                 -0.5f, -0.5f,  0.5f,
+                -0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,
+                 0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,
+                 0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,
+                 0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,
+                -0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,
+                -0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,
 
-                 -0.5f,  0.5f,  0.5f,
-                 -0.5f,  0.5f, -0.5f,
-                 -0.5f, -0.5f, -0.5f,
-                 -0.5f, -0.5f, -0.5f,
-                 -0.5f, -0.5f,  0.5f,
-                 -0.5f,  0.5f,  0.5f,
+                -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
+                -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
+                -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
+                -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
+                -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
+                -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
 
-                 0.5f,  0.5f,  0.5f,
-                 0.5f,  0.5f, -0.5f,
-                 0.5f, -0.5f, -0.5f,
-                 0.5f, -0.5f, -0.5f,
-                 0.5f, -0.5f,  0.5f,
-                 0.5f,  0.5f,  0.5f,
+                 0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
+                 0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+                 0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+                 0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+                 0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
+                 0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
 
-                 -0.5f, -0.5f, -0.5f,
-                  0.5f, -0.5f, -0.5f,
-                  0.5f, -0.5f,  0.5f,
-                  0.5f, -0.5f,  0.5f,
-                 -0.5f, -0.5f,  0.5f,
-                 -0.5f, -0.5f, -0.5f,
+                -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
+                 0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
+                 0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
+                 0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
+                -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
+                -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
 
-                 -0.5f,  0.5f, -0.5f,
-                  0.5f,  0.5f, -0.5f,
-                  0.5f,  0.5f,  0.5f,
-                  0.5f,  0.5f,  0.5f,
-                 -0.5f,  0.5f,  0.5f,
-                 -0.5f,  0.5f, -0.5f,
+                -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
+                 0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
+                 0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+                 0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+                -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+                -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f
             };
 
             GLuint VAO;
@@ -387,8 +387,10 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
             glGenBuffers(1, &VBO);
             glBindBuffer(GL_ARRAY_BUFFER, VBO);
             glBufferData(GL_ARRAY_BUFFER, sizeof(Vertices), Vertices, GL_STATIC_DRAW);
-            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3*sizeof(GLfloat), 0);
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6*sizeof(GLfloat), 0);
+            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6*sizeof(GLfloat), (void *)(3*sizeof(GLfloat)));
             glEnableVertexAttribArray(0);
+            glEnableVertexAttribArray(1);
 
             glBindVertexArray(0);
 
@@ -396,7 +398,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
             glGenVertexArrays(1, &LightVAO);
             glBindVertexArray(LightVAO);
             glBindBuffer(GL_ARRAY_BUFFER, VBO);
-            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), 0);
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6*sizeof(GLfloat), 0);
             glEnableVertexAttribArray(0);
             glBindVertexArray(0);
 
@@ -445,12 +447,21 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                 glm::mat4 Projection;
                 Projection = glm::perspective(DEG_TO_RAD(45), (float)ScreenWidth/(float)ScreenHeight, 0.01f, 100.0f);
 
+                float LampRadius = 2.0f;
+                float LampXY = cos(DEG_TO_RAD(t*30.0f));
+                float LampZ = sin(DEG_TO_RAD(t*30.0f));
+                glm::vec3 LightPos(LampXY, LampXY, LampZ);
+
                 glUseProgram(LightingProgram);
 
                 GLint ObjectColorLoc = glGetUniformLocation(LightingProgram, "objectColor");
                 GLint LightColorLoc = glGetUniformLocation(LightingProgram, "lightColor");
+                GLint LightPosLoc = glGetUniformLocation(LightingProgram, "lightPos");
+                GLint ViewPosLoc = glGetUniformLocation(LightingProgram, "viewPos");
                 glUniform3f(ObjectColorLoc, 1.0f, 0.5f, 0.31f);
                 glUniform3f(LightColorLoc, 1.0f, 1.0f, 1.0f);
+                glUniform3f(LightPosLoc, LightPos.x, LightPos.y, LightPos.z);
+                glUniform3f(ViewPosLoc, Camera.Position.x, Camera.Position.y ,Camera.Position.z);
 
                 GLuint ModelLoc = glGetUniformLocation(LightingProgram, "model");
                 GLuint ViewLoc = glGetUniformLocation(LightingProgram, "view");
@@ -467,7 +478,6 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
 
                 glUseProgram(LampProgram);
                 glBindVertexArray(LightVAO);
-                glm::vec3 LightPos(1.2f, 1.0f, 2.0f);
                 Model = glm::mat4();
                 Model = glm::translate(Model, LightPos);
                 Model = glm::scale(Model, glm::vec3(0.2f));
