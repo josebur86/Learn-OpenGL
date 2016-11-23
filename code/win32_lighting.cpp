@@ -161,9 +161,6 @@ static void Win32ProcessButtonState(button_state *Button, bool IsDown)
     Button->IsDown = IsDown;
 }
 
-int GlobalLastMouseX = -1;
-int GlobalLastMouseY = -1;
-
 static void Win32ProcessPendingMessages(game_controller_input *Input)
 {
     // Process the message pump.
@@ -216,6 +213,17 @@ static void Win32ProcessPendingMessages(game_controller_input *Input)
         }
     }
 }
+
+void Win32WarpCursor(HWND Window, int x, int y)
+{
+    POINT p;
+    p.x = x;
+    p.y = y;
+
+    ClientToScreen(Window, &p);
+    SetCursorPos(p.x, p.y);
+}
+
 struct camera
 {
     glm::vec3 Position;
@@ -227,7 +235,7 @@ struct camera_angles
     float Pitch;
     float Yaw;
 };
-static void UpdateCamera(camera *Camera, camera_angles *CameraAngles, game_controller_input *Input, float CameraSpeed)
+static void UpdateCamera(camera *Camera, camera_angles *CameraAngles, game_controller_input *Input, float CameraSpeed, int WindowCenterX, int WindowCenterY)
 {
     if (Input->Up.IsDown)
     {
@@ -246,16 +254,9 @@ static void UpdateCamera(camera *Camera, camera_angles *CameraAngles, game_contr
         Camera->Position += glm::normalize(glm::cross(Camera->Front, Camera->Up)) * CameraSpeed;
     }
 
-    if (GlobalLastMouseX < 0)
-        GlobalLastMouseX = Input->Mouse.x;
-    if (GlobalLastMouseY < 0)
-        GlobalLastMouseY = Input->Mouse.y;
-
     float Sensitivity = 0.1f;
-    float XOffset = (Input->Mouse.x - GlobalLastMouseX) * Sensitivity;
-    float YOffset = (GlobalLastMouseY - Input->Mouse.y) * Sensitivity;
-    GlobalLastMouseX = Input->Mouse.x;
-    GlobalLastMouseY = Input->Mouse.y;
+    float XOffset = (Input->Mouse.x - WindowCenterX) * Sensitivity;
+    float YOffset = (WindowCenterY - Input->Mouse.y) * Sensitivity;
 
     CameraAngles->Yaw += XOffset;
     CameraAngles->Pitch += YOffset;
@@ -274,6 +275,7 @@ static void UpdateCamera(camera *Camera, camera_angles *CameraAngles, game_contr
     Front.z = cos(DEG_TO_RAD(CameraAngles->Pitch)) * sin(DEG_TO_RAD(CameraAngles->Yaw));
     Camera->Front = glm::normalize(Front);
 }
+
 
 int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLine, int ShowCode)
 {
@@ -420,6 +422,9 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
             CameraAngles.Pitch = 0.0f;
             CameraAngles.Yaw = -90.0f;
 
+            int WindowCenterX = ScreenWidth / 2;
+            int WindowCenterY = ScreenHeight / 2;
+
             game_controller_input Input = {};
             GlobalRunning = OpenGLContext != 0;
             while(GlobalRunning)
@@ -427,7 +432,8 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                 Win32ProcessPendingMessages(&Input);
 
                 float CameraSpeed = 0.05f;
-                UpdateCamera(&Camera, &CameraAngles, &Input, CameraSpeed);
+                UpdateCamera(&Camera, &CameraAngles, &Input, CameraSpeed, WindowCenterX, WindowCenterY);
+                Win32WarpCursor(Window, WindowCenterX, WindowCenterY);
 
                 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
