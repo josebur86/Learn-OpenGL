@@ -66,10 +66,12 @@ VERTEXATTRIBPOINTER glVertexAttribPointer;
 ENABLEVERTEXATTRIBARRAY glEnableVertexAttribArray;
 
 typedef void (*UNIFORM1I)(GLint location, GLint v0);
+typedef void (*UNIFORM1F)(GLint location, GLfloat v0);
 typedef void (*UNIFORM3F)(GLint location, GLfloat v0, GLfloat v1, GLfloat v2);
 
 typedef void (*UNIFORMMATRIX4FV)(GLint location, GLsizei count, GLboolean transpose, const GLfloat *value);
 
+UNIFORM1F glUniform1f;
 UNIFORM3F glUniform3f;
 UNIFORM1I glUniform1i;
 UNIFORMMATRIX4FV glUniformMatrix4fv;
@@ -112,6 +114,7 @@ void InitOpenGLExtensions()
     GET_FUNC(ENABLEVERTEXATTRIBARRAY, glEnableVertexAttribArray);
 
     GET_FUNC(UNIFORM1I, glUniform1i);
+    GET_FUNC(UNIFORM1F, glUniform1f);
     GET_FUNC(UNIFORM3F, glUniform3f);
 
 #undef GET_FUNC

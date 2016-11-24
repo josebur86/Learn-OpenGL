@@ -464,22 +464,45 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                 glm::mat4 Projection;
                 Projection = glm::perspective(DEG_TO_RAD(45), (float)ScreenWidth/(float)ScreenHeight, 0.01f, 100.0f);
 
-                float LampRadius = 2.0f;
                 float LampX = cos(DEG_TO_RAD(t*25.0f));
                 float LampZ = sin(DEG_TO_RAD(t*25.0f));
+#if 0
                 glm::vec3 LightPos(LampX, 1.2f, LampZ);
-                //glm::vec3 LightPos(LampRadius, LampRadius, 1.2f);
+#else
+                glm::vec3 LightPos(1.2f, 1.2f, 1.2f);
+#endif
 
                 glUseProgram(LightingProgram);
 
-                GLint ObjectColorLoc = glGetUniformLocation(LightingProgram, "objectColor");
-                GLint LightColorLoc = glGetUniformLocation(LightingProgram, "lightColor");
-                GLint LightPosLoc = glGetUniformLocation(LightingProgram, "lightPos");
+                // Change the light properties over time.
+                glm::vec3 LightColor;
+                LightColor.x = sin(DEG_TO_RAD(20.0f * t * 2.0f));
+                LightColor.y = sin(DEG_TO_RAD(20.0f * t * 0.7f));
+                LightColor.z = sin(DEG_TO_RAD(20.0f * t * 1.3f));
+
+                glm::vec3 DiffuseColor = LightColor * glm::vec3(0.5f); // Decrease the influence.
+                glm::vec3 AmbientColor = DiffuseColor * glm::vec3(0.2f); // Low influence.
+
+                GLint LightAmbientLoc = glGetUniformLocation(LightingProgram, "light.ambient");
+                GLint LightDiffuseLoc = glGetUniformLocation(LightingProgram, "light.diffuse");
+                GLint LightSpecularLoc = glGetUniformLocation(LightingProgram, "light.specular");
+                GLint LightPosLoc = glGetUniformLocation(LightingProgram, "light.position");
                 GLint ViewPosLoc = glGetUniformLocation(LightingProgram, "viewPos");
-                glUniform3f(ObjectColorLoc, 1.0f, 0.5f, 0.31f);
-                glUniform3f(LightColorLoc, 1.0f, 1.0f, 1.0f);
+                glUniform3f(LightAmbientLoc, AmbientColor.x, AmbientColor.y, AmbientColor.z);
+                glUniform3f(LightDiffuseLoc, DiffuseColor.x, DiffuseColor.y, DiffuseColor.z);
+                glUniform3f(LightSpecularLoc, 1.0f, 1.0f, 1.0f);
                 glUniform3f(LightPosLoc, LightPos.x, LightPos.y, LightPos.z);
                 glUniform3f(ViewPosLoc, Camera.Position.x, Camera.Position.y ,Camera.Position.z);
+
+                GLint MaterialAmbientLoc = glGetUniformLocation(LightingProgram, "material.ambient");
+                GLint MaterialDiffuseLoc = glGetUniformLocation(LightingProgram, "material.diffuse");
+                GLint MaterialSpecularLoc = glGetUniformLocation(LightingProgram, "material.specular");
+                GLint MaterialShininessLoc = glGetUniformLocation(LightingProgram, "material.shininess");
+                glUniform3f(MaterialAmbientLoc, 1.0f, 0.5f, 0.31f);
+                glUniform3f(MaterialDiffuseLoc, 1.0f, 0.5f, 0.31f);
+                glUniform3f(MaterialSpecularLoc, 0.5f, 0.5f, 0.5f);
+                glUniform1f(MaterialShininessLoc, 32.0f);
+
 
                 GLuint ModelLoc = glGetUniformLocation(LightingProgram, "model");
                 GLuint ViewLoc = glGetUniformLocation(LightingProgram, "view");
