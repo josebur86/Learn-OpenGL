@@ -117,6 +117,8 @@ void DEBUGFreeImage(loaded_image Image)
 }
 
 static bool GlobalRunning = true;
+static bool GlobalWindowHasFocus = false;
+static RECT GlobalClipRectToRestore;
 static LARGE_INTEGER GlobalPerfFrequencyCount;
 
 inline static LARGE_INTEGER Win32GetClock()
@@ -143,6 +145,25 @@ static LRESULT CALLBACK Win32MainCallWindowCallback(HWND Window, UINT Message, W
         case WM_DESTROY:
         {
             GlobalRunning = false;
+        } break;
+        case WM_ACTIVATEAPP:
+        {
+            int Activate = (int)WParam;
+            if (Activate)
+            {
+                GlobalWindowHasFocus = true;
+                GetClipCursor(&GlobalClipRectToRestore);
+                RECT ClipRect;
+                GetWindowRect(Window, &ClipRect);
+                ClipCursor(&ClipRect);
+                ShowCursor(0);
+            }
+            else
+            {
+                ClipCursor(&GlobalClipRectToRestore);
+                ShowCursor(1);
+                GlobalWindowHasFocus = false;
+            }
         } break;
         default:
         {
@@ -306,13 +327,6 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
         {
             QueryPerformanceFrequency(&GlobalPerfFrequencyCount);
 
-            RECT ClipRect;
-            RECT PreviousClipRect;
-            GetClipCursor(&PreviousClipRect);
-            GetWindowRect(Window, &ClipRect);
-            ClipCursor(&ClipRect);
-            ShowCursor( 0 );
-
             HDC DeviceContext = GetDC(Window);
             HGLRC OpenGLContext = 0;
             if (DeviceContext)
@@ -424,6 +438,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
             CameraAngles.Pitch = 0.0f;
             CameraAngles.Yaw = -90.0f;
 
+            float CameraSpeed = 0.05f;
             int WindowCenterX = ScreenWidth / 2;
             int WindowCenterY = ScreenHeight / 2;
 
@@ -433,9 +448,11 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
             {
                 Win32ProcessPendingMessages(&Input);
 
-                float CameraSpeed = 0.05f;
-                UpdateCamera(&Camera, &CameraAngles, &Input, CameraSpeed, WindowCenterX, WindowCenterY);
-                Win32WarpCursor(Window, WindowCenterX, WindowCenterY);
+                if (GlobalWindowHasFocus)
+                {
+                    UpdateCamera(&Camera, &CameraAngles, &Input, CameraSpeed, WindowCenterX, WindowCenterY);
+                    Win32WarpCursor(Window, WindowCenterX, WindowCenterY);
+                }
 
                 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -448,9 +465,10 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                 Projection = glm::perspective(DEG_TO_RAD(45), (float)ScreenWidth/(float)ScreenHeight, 0.01f, 100.0f);
 
                 float LampRadius = 2.0f;
-                float LampXY = cos(DEG_TO_RAD(t*30.0f));
-                float LampZ = sin(DEG_TO_RAD(t*30.0f));
-                glm::vec3 LightPos(LampXY, LampXY, LampZ);
+                float LampX = cos(DEG_TO_RAD(t*25.0f));
+                float LampZ = sin(DEG_TO_RAD(t*25.0f));
+                glm::vec3 LightPos(LampX, 1.2f, LampZ);
+                //glm::vec3 LightPos(LampRadius, LampRadius, 1.2f);
 
                 glUseProgram(LightingProgram);
 
@@ -498,8 +516,6 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
             wglMakeCurrent(0, 0);
             wglDeleteContext(OpenGLContext);
             DeleteDC(DeviceContext);
-
-            ClipCursor(&PreviousClipRect);
         }
     }
 
