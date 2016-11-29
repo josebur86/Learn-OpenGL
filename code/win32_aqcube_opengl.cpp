@@ -79,6 +79,7 @@ GLuint Win32CreateProgram(GLuint *Shaders, int ShaderCount)
     return ShaderProgram;
 }
 
+// TODO(joe): Make it possible for the loaded_image to know the Source Pixel Format?
 GLuint Win32CreateTexture(loaded_image Image, GLint SourcePixelFormat, GLenum TextureUnit)
 {
     GLuint Texture;
