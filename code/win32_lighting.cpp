@@ -135,6 +135,16 @@ inline static float Win32GetElapsedSeconds(LARGE_INTEGER Start, LARGE_INTEGER En
     return Result;
 }
 
+void Win32WarpCursor(HWND Window, int x, int y)
+{
+    POINT p;
+    p.x = x;
+    p.y = y;
+
+    ClientToScreen(Window, &p);
+    SetCursorPos(p.x, p.y);
+}
+
 static LRESULT CALLBACK Win32MainCallWindowCallback(HWND Window, UINT Message, WPARAM WParam, LPARAM LParam)
 {
     LRESULT Result = 0;
@@ -157,6 +167,12 @@ static LRESULT CALLBACK Win32MainCallWindowCallback(HWND Window, UINT Message, W
                 GetWindowRect(Window, &ClipRect);
                 ClipCursor(&ClipRect);
                 ShowCursor(0);
+
+                RECT WindowRect;
+                GetClientRect(Window, &WindowRect);
+                int x = (WindowRect.right - WindowRect.left) / 2;
+                int y = (WindowRect.bottom - WindowRect.top) / 2;
+                Win32WarpCursor(Window, x, y);
             }
             else
             {
@@ -235,16 +251,6 @@ static void Win32ProcessPendingMessages(game_controller_input *Input)
     }
 }
 
-void Win32WarpCursor(HWND Window, int x, int y)
-{
-    POINT p;
-    p.x = x;
-    p.y = y;
-
-    ClientToScreen(Window, &p);
-    SetCursorPos(p.x, p.y);
-}
-
 struct camera
 {
     glm::vec3 Position;
@@ -309,8 +315,8 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
 
     if(RegisterClassA(&WindowClass))
     {
-        int ScreenWidth = 1200;
-        int ScreenHeight = 800;
+        int ScreenWidth = 800;
+        int ScreenHeight = 600;
         HWND Window = CreateWindowEx( 0,
                                       WindowClass.lpszClassName,
                                       "Adequate Cube",
