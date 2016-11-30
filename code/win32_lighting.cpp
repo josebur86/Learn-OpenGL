@@ -400,6 +400,19 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                 -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f
             };
 
+            glm::vec3 CubePositions[] = {
+                glm::vec3( 0.0f,  0.0f,  0.0f),
+                glm::vec3( 2.0f,  5.0f, -15.0f),
+                glm::vec3(-1.5f, -2.2f, -2.5f),
+                glm::vec3(-3.8f, -2.0f, -12.3f),
+                glm::vec3( 2.4f, -0.4f, -3.5f),
+                glm::vec3(-1.7f,  3.0f, -7.5f),
+                glm::vec3( 1.3f, -2.0f, -2.5f),
+                glm::vec3( 1.5f,  2.0f, -2.5f),
+                glm::vec3( 1.5f,  0.2f, -1.5f),
+                glm::vec3(-1.3f,  1.0f, -1.5f)
+            };
+
             loaded_image DiffuseImage = DEBUGLoadImage("container2.png");
             GLuint DiffuseMap = Win32CreateTexture(DiffuseImage, GL_RGBA, GL_TEXTURE0);
 
@@ -513,7 +526,12 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                 glUniform3f(LightDiffuseLoc, DiffuseColor.x, DiffuseColor.y, DiffuseColor.z);
                 glUniform3f(LightSpecularLoc, 1.0f, 1.0f, 1.0f);
                 glUniform3f(LightPosLoc, LightPos.x, LightPos.y, LightPos.z);
-                glUniform3f(ViewPosLoc, Camera.Position.x, Camera.Position.y ,Camera.Position.z);
+                glUniform3f(ViewPosLoc, Camera.Position.x, Camera.Position.y, Camera.Position.z);
+
+                // Set the attenuation values.
+                glUniform1f(glGetUniformLocation(LightingProgram, "light.constant"), 1.0f);
+                glUniform1f(glGetUniformLocation(LightingProgram, "light.linear"), 0.09f);
+                glUniform1f(glGetUniformLocation(LightingProgram, "light.quadratic"), 0.032f);
 
                 //GLint MaterialAmbientLoc = glGetUniformLocation(LightingProgram, "material.ambient");
                 //glUniform3f(MaterialAmbientLoc, 1.0f, 0.5f, 0.31f);
@@ -524,7 +542,6 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                 glUniform1i(MaterialSpecularLoc, 1);
                 glUniform1f(MaterialShininessLoc, 32.0f);
 
-
                 GLuint ModelLoc = glGetUniformLocation(LightingProgram, "model");
                 GLuint ViewLoc = glGetUniformLocation(LightingProgram, "view");
                 GLuint ProjectionLoc = glGetUniformLocation(LightingProgram, "projection");
@@ -534,17 +551,24 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
 
                 glBindVertexArray(VAO);
 
-                glm::mat4 Model;
-                Model = glm::translate(Model, glm::vec3(0.0f, 0.0f, 0.0f));
-                glUniformMatrix4fv(ModelLoc, 1, GL_FALSE, glm::value_ptr(Model));
-
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, DiffuseMap);
                 glActiveTexture(GL_TEXTURE1);
                 glBindTexture(GL_TEXTURE_2D, SpecularMap);
 
-                glDrawArrays(GL_TRIANGLES, 0, 36);
+                glm::mat4 Model;
+                for (int PositionIndex = 0; PositionIndex < ArrayCount(CubePositions); ++PositionIndex)
+                {
+                    Model = glm::mat4();
+                    Model = glm::translate(Model, CubePositions[PositionIndex]);
+                    GLfloat angle = 20.0f * PositionIndex;
+                    Model = glm::rotate(Model, DEG_TO_RAD(angle), glm::vec3(1.0f, 0.3f, 0.5f));
 
+                    glUniformMatrix4fv(ModelLoc, 1, GL_FALSE, glm::value_ptr(Model));
+                    glDrawArrays(GL_TRIANGLES, 0, 36);
+                }
+
+#if 1
                 glUseProgram(LampProgram);
                 glBindVertexArray(LightVAO);
                 Model = glm::mat4();
@@ -557,6 +581,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                 glUniformMatrix4fv(LampViewLoc, 1, GL_FALSE, glm::value_ptr(View));
                 glUniformMatrix4fv(LampProjectionLoc, 1, GL_FALSE, glm::value_ptr(Projection));
                 glDrawArrays(GL_TRIANGLES, 0, 36);
+#endif
 
                 glBindVertexArray(0);
                 glUseProgram(0);
