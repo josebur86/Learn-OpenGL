@@ -413,6 +413,13 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                 glm::vec3(-1.3f,  1.0f, -1.5f)
             };
 
+            glm::vec3 PointLightPositions[] = {
+                glm::vec3( 0.7f,  0.2f,  2.0f),
+                glm::vec3( 2.3f, -3.3f, -4.0f),
+                glm::vec3(-4.0f,  2.0f, -12.0f),
+                glm::vec3( 0.0f,  0.0f, -3.0f)
+            };
+
             loaded_image DiffuseImage = DEBUGLoadImage("container2.png");
             GLuint DiffuseMap = Win32CreateTexture(DiffuseImage, GL_RGBA, GL_TEXTURE0);
 
@@ -511,22 +518,52 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                 glm::vec3 DiffuseColor = LightColor * glm::vec3(0.5f); // Decrease the influence.
                 glm::vec3 AmbientColor = DiffuseColor * glm::vec3(0.2f); // Low influence.
 
-                // Set the light properties (ambient, diffuse, specular).
-                GLint LightAmbientLoc = glGetUniformLocation(LightingProgram, "light.ambient");
-                glUniform3f(LightAmbientLoc, AmbientColor.x, AmbientColor.y, AmbientColor.z);
-                GLint LightDiffuseLoc = glGetUniformLocation(LightingProgram, "light.diffuse");
-                glUniform3f(LightDiffuseLoc, DiffuseColor.x, DiffuseColor.y, DiffuseColor.z);
-                GLint LightSpecularLoc = glGetUniformLocation(LightingProgram, "light.specular");
-                glUniform3f(LightSpecularLoc, 1.0f, 1.0f, 1.0f);
+                // Set the direction light properties (ambient, diffuse, specular).
+                glUniform3f(glGetUniformLocation(LightingProgram, "dirLight.direction"), -0.2f, -1.0f, -0.3f);
+                glUniform3f(glGetUniformLocation(LightingProgram, "dirLight.ambient"), AmbientColor.x, AmbientColor.y, AmbientColor.z);
+                glUniform3f(glGetUniformLocation(LightingProgram, "dirLight.diffuse"), DiffuseColor.x, DiffuseColor.y, DiffuseColor.z);
+                glUniform3f(glGetUniformLocation(LightingProgram, "dirLight.specular"), 1.0f, 1.0f, 1.0f);
 
-                // Set the light position values.
-                GLint LightPosLoc = glGetUniformLocation(LightingProgram, "light.position");
-                glUniform3f(LightPosLoc, LightPos.x, LightPos.y, LightPos.z);
+                // Set the point light properties.
+#define NR_POINT_LIGHTS 4
+#define POINT_LIGHT_UNIFORM(Buffer, Index, Uniform) sprintf_s(Buffer, (sizeof(Buffer) / sizeof(Buffer[0])), "pointLights[%i].%s", (Index), (Uniform))
+                for (int LightIndex = 0; LightIndex < NR_POINT_LIGHTS; ++LightIndex)
+                {
+                    char Buffer[64];
 
-                // Set the attenuation values.
-                glUniform1f(glGetUniformLocation(LightingProgram, "light.constant"), 1.0f);
-                glUniform1f(glGetUniformLocation(LightingProgram, "light.linear"), 0.09f);
-                glUniform1f(glGetUniformLocation(LightingProgram, "light.quadratic"), 0.032f);
+                    // Position
+                    glm::vec3 *Position = PointLightPositions + LightIndex;
+                    POINT_LIGHT_UNIFORM(Buffer, LightIndex, "position");
+                    glUniform3f(glGetUniformLocation(LightingProgram, Buffer), Position->x, Position->y, Position->z);
+
+                    // Attenuation
+                    POINT_LIGHT_UNIFORM(Buffer, LightIndex, "constant");
+                    glUniform1f(glGetUniformLocation(LightingProgram, Buffer), 1.0f);
+                    POINT_LIGHT_UNIFORM(Buffer, LightIndex, "linear");
+                    glUniform1f(glGetUniformLocation(LightingProgram, Buffer), 0.09f);
+                    POINT_LIGHT_UNIFORM(Buffer, LightIndex, "quadratic");
+                    glUniform1f(glGetUniformLocation(LightingProgram, Buffer), 0.032f);
+
+                    // Light properties
+                    POINT_LIGHT_UNIFORM(Buffer, LightIndex, "ambient");
+                    glUniform3f(glGetUniformLocation(LightingProgram, Buffer), AmbientColor.x, AmbientColor.y, AmbientColor.z);
+                    POINT_LIGHT_UNIFORM(Buffer, LightIndex, "diffuse");
+                    glUniform3f(glGetUniformLocation(LightingProgram, Buffer), DiffuseColor.x, DiffuseColor.y, DiffuseColor.z);
+                    POINT_LIGHT_UNIFORM(Buffer, LightIndex, "specular");
+                    glUniform3f(glGetUniformLocation(LightingProgram, Buffer), 1.0f, 1.0f, 1.0f);
+                }
+
+#if 0
+                // Spotlight
+                GLint LightSpotDirLoc = glGetUniformLocation(LightingProgram, "light.direction");
+                GLint LightSpotCutOffLoc = glGetUniformLocation(LightingProgram, "light.cutOff");
+                GLint LightSpotOuterCutOffLoc = glGetUniformLocation(LightingProgram, "light.outerCutOff");
+
+                glUniform3f(LightPosLoc, Camera.Position.x, Camera.Position.y, Camera.Position.z);
+                glUniform3f(LightSpotDirLoc, Camera.Front.x, Camera.Front.y, Camera.Front.z);
+                glUniform1f(LightSpotCutOffLoc, glm::cos(DEG_TO_RAD(12.5f)));
+                glUniform1f(LightSpotOuterCutOffLoc, glm::cos(DEG_TO_RAD(17.5f)));
+#endif
 
                 // Set the material properties.
                 glUniform1i(glGetUniformLocation(LightingProgram, "material.diffuse"),   0);
@@ -562,16 +599,18 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
 #if 1
                 glUseProgram(LampProgram);
                 glBindVertexArray(LightVAO);
-                Model = glm::mat4();
-                Model = glm::translate(Model, LightPos);
-                Model = glm::scale(Model, glm::vec3(0.2f));
-                GLuint LampModelLoc = glGetUniformLocation(LampProgram, "model");
-                GLuint LampViewLoc = glGetUniformLocation(LampProgram, "view");
-                GLuint LampProjectionLoc = glGetUniformLocation(LampProgram, "projection");
-                glUniformMatrix4fv(LampModelLoc, 1, GL_FALSE, glm::value_ptr(Model));
-                glUniformMatrix4fv(LampViewLoc, 1, GL_FALSE, glm::value_ptr(View));
-                glUniformMatrix4fv(LampProjectionLoc, 1, GL_FALSE, glm::value_ptr(Projection));
-                glDrawArrays(GL_TRIANGLES, 0, 36);
+
+                glUniformMatrix4fv(glGetUniformLocation(LampProgram, "view"), 1, GL_FALSE, glm::value_ptr(View));
+                glUniformMatrix4fv(glGetUniformLocation(LampProgram, "projection"), 1, GL_FALSE, glm::value_ptr(Projection));
+
+                for (int PositionIndex = 0; PositionIndex < ArrayCount(PointLightPositions); ++PositionIndex)
+                {
+                    Model = glm::mat4();
+                    Model = glm::translate(Model, PointLightPositions[PositionIndex]);
+                    Model = glm::scale(Model, glm::vec3(0.2f));
+                    glUniformMatrix4fv(glGetUniformLocation(LampProgram, "model"), 1, GL_FALSE, glm::value_ptr(Model));
+                    glDrawArrays(GL_TRIANGLES, 0, 36);
+                }
 #endif
 
                 glBindVertexArray(0);
