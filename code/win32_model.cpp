@@ -152,6 +152,7 @@ struct texture
 {
     GLuint Id;
     const char *Type;
+    aiString Path;
 };
 
 class Mesh
@@ -260,6 +261,8 @@ class Model
         void ProcessNode(aiNode *Node, const aiScene *Scene);
         Mesh ProcessMesh(aiMesh *Mesh, const aiScene *Scene);
         vector<texture> LoadMaterialTextures(aiMaterial *Material, aiTextureType Type, const char *TypeName);
+
+        vector<texture> LoadedTextures;
 };
 
 void Model::Draw(GLuint Program)
@@ -374,15 +377,30 @@ vector<texture> Model::LoadMaterialTextures(aiMaterial *Material, aiTextureType 
         aiString str;
         Material->GetTexture(Type, i, &str);
 
-        char TextureFilePath[256];
-        sprintf_s(TextureFilePath, 256, "%s\\%s", Directory, str.C_Str());
+        bool LoadTexture = true;
+        for (size_t j = 0; j < LoadedTextures.size(); ++j)
+        {
+            if (LoadedTextures[j].Path == str)
+            {
+                Textures.push_back(LoadedTextures[i]);
+                LoadTexture = false;
+                break;
+            }
+        }
+        if (LoadTexture)
+        {
+            char TextureFilePath[256];
+            sprintf_s(TextureFilePath, 256, "%s\\%s", Directory, str.C_Str());
 
-        texture Texture;
-        Texture.Id = Win32TextureFromFile(TextureFilePath);
-        Texture.Type = TypeName;
-        //Texture.Path = str; // TODO(joe). might have to memcopy this.
+            texture Texture;
+            Texture.Id = Win32TextureFromFile(TextureFilePath);
+            Texture.Type = TypeName;
+            Texture.Path = str;
 
-        Textures.push_back(Texture);
+            Textures.push_back(Texture);
+
+            LoadedTextures.push_back(Texture);
+        }
     }
 
     return Textures;
