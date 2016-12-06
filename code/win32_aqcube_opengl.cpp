@@ -80,16 +80,18 @@ GLuint Win32CreateProgram(GLuint *Shaders, int ShaderCount)
 }
 
 // TODO(joe): Make it possible for the loaded_image to know the Source Pixel Format?
-GLuint Win32CreateTexture(loaded_image Image, GLint SourcePixelFormat, GLenum TextureUnit)
+GLuint Win32CreateTexture(loaded_image Image, GLint SourcePixelFormat)
 {
     GLuint Texture;
     glGenTextures(1, &Texture);
-    glActiveTexture(TextureUnit);
+    //glActiveTexture(TextureUnit);
     glBindTexture(GL_TEXTURE_2D, Texture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, Image.Width, Image.Height, 0, SourcePixelFormat, GL_UNSIGNED_BYTE, Image.Data);
     glGenerateMipmap(GL_TEXTURE_2D);
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     glBindTexture(GL_TEXTURE_2D, 0);

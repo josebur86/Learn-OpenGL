@@ -20,6 +20,10 @@ using namespace std;
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtc/type_ptr.hpp"
 
+#include "assimp/Importer.hpp"
+#include "assimp/scene.h"
+#include "assimp/postprocess.h"
+
 #define PI32 3.14159265359f
 
 #define DEG_TO_RAD(VALUE) ((VALUE)*(PI32/180.0f))
@@ -37,116 +41,6 @@ typedef uint64_t uint64;
 #include "aqcube.cpp"
 #include "win32_aqcube_opengl.cpp"
 
-//
-// Mesh
-//
-
-struct vertex
-{
-    glm::vec3 Position;
-    glm::vec3 Normal;
-    glm::vec2 TexCoords;
-};
-
-struct texture
-{
-    GLuint Id;
-    const char *Type;
-};
-
-class Mesh
-{
-    public:
-        vector<vertex> Vertices;
-        vector<GLuint> Indices;
-        vector<texture> Textures;
-
-        Mesh(vector<vertex> Vertices, vector<GLuint> Indices, vector<texture> Textures);
-        void Draw(GLuint Program);
-
-    private:
-        GLuint VAO, VBO, EBO; // Render Data
-        void SetupMesh();
-};
-
-Mesh::Mesh(vector<vertex> Vertices, vector<GLuint> Indices, vector<texture> Textures) :
-    Vertices(Vertices),
-    Indices(Indices),
-    Textures(Textures)
-{
-    SetupMesh();
-}
-
-void Mesh::SetupMesh()
-{
-    // Generate the buffers.
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-    glGenBuffers(1, &EBO);
-
-    glBindVertexArray(VAO);
-
-    // Bind the vertex buffer.
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, Vertices.size() * sizeof(vertex), &Vertices[0], GL_STATIC_DRAW);
-
-    // Bind the index buffer.
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, Indices.size() * sizeof(GLuint), &Indices[0], GL_STATIC_DRAW);
-
-    // Vertex Positions
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), 0);
-
-    // Vertex Normals
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (GLvoid *)offsetof(vertex, Normal));
-
-    // Vertex Texture Coordinates
-    glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(vertex), (GLvoid *)offsetof(vertex, TexCoords));
-
-    glBindVertexArray(0);
-}
-
-void Mesh::Draw(GLuint Program)
-{
-    #define UNIFORM(NAME, NUMBER) sprintf_s(Uniform, sizeof(Uniform)/sizeof(Uniform[0]), "material.%s%i", (NAME), (NUMBER))
-
-    GLuint DiffuseNum = 0;
-    GLuint SpecularNum = 0;
-
-    char Uniform[64];
-
-    for (GLuint i = 0; i < Textures.size(); ++i)
-    {
-        glActiveTexture(GL_TEXTURE0 + i);
-
-        int number = 0;
-        if (Textures[i].Type == "texture_diffuse")
-        {
-            number = DiffuseNum++;
-        }
-        else if (Textures[i].Type == "texture_specular")
-        {
-            number = SpecularNum++;
-        }
-
-        UNIFORM(Textures[i].Type, number);
-        glUniform1i(glGetUniformLocation(Program, Uniform), i);
-        glBindTexture(GL_TEXTURE_2D, Textures[i].Id);
-    }
-    glActiveTexture(GL_TEXTURE0);
-
-    // Draw mesh
-    glBindVertexArray(VAO);
-    glDrawElements(GL_TRIANGLES, Indices.size(), GL_UNSIGNED_INT, 0);
-    glBindVertexArray(0);
-}
-
-//
-//
-//
 
 struct win32_back_buffer
 {
@@ -229,6 +123,273 @@ void DEBUGFreeImage(loaded_image Image)
         Image.Data = 0;
     }
 }
+
+GLint Win32TextureFromFile(char* FileName)
+{
+    GLint Result = -1;
+    loaded_image Image = DEBUGLoadImage(FileName);
+    if (Image.Data)
+    {
+        Result = Win32CreateTexture(Image, Image.PixelComponentCount == 4 ? GL_RGBA : GL_RGB);
+        DEBUGFreeImage(Image);
+    }
+
+    return Result;
+}
+
+//
+// Mesh
+//
+
+struct vertex
+{
+    glm::vec3 Position;
+    glm::vec3 Normal;
+    glm::vec2 TexCoords;
+};
+
+struct texture
+{
+    GLuint Id;
+    const char *Type;
+};
+
+class Mesh
+{
+    public:
+        vector<vertex> Vertices;
+        vector<GLuint> Indices;
+        vector<texture> Textures;
+
+        Mesh(vector<vertex> Vertices, vector<GLuint> Indices, vector<texture> Textures);
+        void Draw(GLuint Program);
+
+    private:
+        GLuint VAO, VBO, EBO; // Render Data
+        void SetupMesh();
+};
+
+Mesh::Mesh(vector<vertex> Vertices, vector<GLuint> Indices, vector<texture> Textures) :
+    Vertices(Vertices),
+    Indices(Indices),
+    Textures(Textures)
+{
+    SetupMesh();
+}
+
+void Mesh::SetupMesh()
+{
+    // Generate the buffers.
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glGenBuffers(1, &EBO);
+
+    glBindVertexArray(VAO);
+
+    // Bind the vertex buffer.
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, Vertices.size() * sizeof(vertex), &Vertices[0], GL_STATIC_DRAW);
+
+    // Bind the index buffer.
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, Indices.size() * sizeof(GLuint), &Indices[0], GL_STATIC_DRAW);
+
+    // Vertex Positions
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), 0);
+
+    // Vertex Normals
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (GLvoid *)offsetof(vertex, Normal));
+
+    // Vertex Texture Coordinates
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(vertex), (GLvoid *)offsetof(vertex, TexCoords));
+
+    glBindVertexArray(0);
+}
+
+void Mesh::Draw(GLuint Program)
+{
+    //#define UNIFORM(NAME, NUMBER) sprintf_s(Uniform, sizeof(Uniform)/sizeof(Uniform[0]), "material.%s%i", (NAME), (NUMBER))
+    #define UNIFORM(NAME, NUMBER) sprintf_s(Uniform, sizeof(Uniform)/sizeof(Uniform[0]), "%s%i", (NAME), (NUMBER))
+
+    GLuint DiffuseNum = 1;
+    GLuint SpecularNum = 1;
+
+    char Uniform[64];
+
+    for (GLuint i = 0; i < Textures.size(); ++i)
+    {
+        glActiveTexture(GL_TEXTURE0 + i);
+
+        int number = 0;
+        if (strcmp(Textures[i].Type, "texture_diffuse") == 0)
+        {
+            number = DiffuseNum++;
+        }
+        else if (strcmp(Textures[i].Type, "texture_specular") == 0)
+        {
+            number = SpecularNum++;
+        }
+
+        glBindTexture(GL_TEXTURE_2D, Textures[i].Id);
+        UNIFORM(Textures[i].Type, number);
+        glUniform1i(glGetUniformLocation(Program, Uniform), i);
+    }
+    glActiveTexture(GL_TEXTURE0);
+
+    // Draw mesh
+    glBindVertexArray(VAO);
+    glDrawElements(GL_TRIANGLES, Indices.size(), GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+}
+
+class Model
+{
+    public:
+        Model(GLchar *Path) { memset(&Directory, 0, 256); LoadModel(Path); }
+
+        void Draw(GLuint Program);
+
+    private:
+        vector<Mesh> Meshes;
+        char Directory[256];
+
+        void LoadModel(const char *Path);
+        void ProcessNode(aiNode *Node, const aiScene *Scene);
+        Mesh ProcessMesh(aiMesh *Mesh, const aiScene *Scene);
+        vector<texture> LoadMaterialTextures(aiMaterial *Material, aiTextureType Type, const char *TypeName);
+};
+
+void Model::Draw(GLuint Program)
+{
+    for (GLuint i = 0; i < Meshes.size(); ++i)
+    {
+        Meshes[i].Draw(Program);
+    }
+}
+
+void Model::LoadModel(const char *Path)
+{
+    Assimp::Importer Import;
+    const aiScene *Scene = Import.ReadFile(Path, aiProcess_Triangulate | aiProcess_FlipUVs);
+    if (!Scene || Scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE || !Scene->mRootNode)
+    {
+        char ErrorString[256];
+        sprintf_s(ErrorString, 256, "Error::Assimp:: %s\n", Import.GetErrorString());
+        OutputDebugStringA(ErrorString);
+    }
+
+    // Set the path to the directory.
+    // TODO(joe): Debug this!
+    const char *Last = strrchr(Path, '/');
+    int Count = Last-Path+1;
+    memcpy_s(Directory, 256, Path, Count);
+
+    ProcessNode(Scene->mRootNode, Scene);
+}
+
+void Model::ProcessNode(aiNode *Node, const aiScene *Scene)
+{
+    // Process all the node's meshes (if any)
+    for (GLuint i = 0; i < Node->mNumMeshes; ++i)
+    {
+        aiMesh *Mesh = Scene->mMeshes[Node->mMeshes[i]];
+        Meshes.push_back(ProcessMesh(Mesh, Scene));
+    }
+
+    // Do the same for each of its children
+    for (GLuint i = 0; i < Node->mNumChildren; ++i)
+    {
+        ProcessNode(Node->mChildren[i], Scene);
+    }
+}
+
+Mesh Model::ProcessMesh(aiMesh *Mesh, const aiScene *Scene)
+{
+    vector<vertex> Vertices;
+    vector<GLuint> Indices;
+    vector<texture> Textures;
+
+    // Vertices
+    for (GLuint i = 0; i < Mesh->mNumVertices; ++i)
+    {
+        vertex Vertex;
+
+        // Position
+        Vertex.Position.x = Mesh->mVertices[i].x;
+        Vertex.Position.y = Mesh->mVertices[i].y;
+        Vertex.Position.z = Mesh->mVertices[i].z;
+
+        // Normal
+        Vertex.Normal.x = Mesh->mNormals[i].x;
+        Vertex.Normal.y = Mesh->mNormals[i].y;
+        Vertex.Normal.z = Mesh->mNormals[i].z;
+
+        // Texture Coordinates
+        if (Mesh->mTextureCoords[0])
+        {
+            Vertex.TexCoords.x = Mesh->mTextureCoords[0][i].x;
+            Vertex.TexCoords.y = Mesh->mTextureCoords[0][i].y;
+        }
+        else
+        {
+            Vertex.TexCoords = glm::vec2(0.0f, 0.0f);
+        }
+
+        Vertices.push_back(Vertex);
+    }
+
+    // Indices
+    for (GLuint i = 0; i < Mesh->mNumFaces; ++i)
+    {
+        aiFace Face = Mesh->mFaces[i];
+        for (GLuint j = 0; j < Face.mNumIndices; ++j)
+        {
+            Indices.push_back(Face.mIndices[j]);
+        }
+    }
+
+    // Materials
+    if (Mesh->mMaterialIndex >= 0)
+    {
+        aiMaterial *Material = Scene->mMaterials[Mesh->mMaterialIndex];
+
+        vector<texture> DiffuseMaps = LoadMaterialTextures(Material, aiTextureType_DIFFUSE, "texture_diffuse");
+        Textures.insert(Textures.end(), DiffuseMaps.begin(), DiffuseMaps.end());
+
+        vector<texture> SpecularMaps = LoadMaterialTextures(Material, aiTextureType_SPECULAR, "texture_specular");
+        Textures.insert(Textures.end(), SpecularMaps.begin(), SpecularMaps.end());
+    }
+
+    return Mesh::Mesh(Vertices, Indices, Textures);
+}
+
+vector<texture> Model::LoadMaterialTextures(aiMaterial *Material, aiTextureType Type, const char *TypeName)
+{
+    vector<texture> Textures;
+    for (GLuint i = 0; i < Material->GetTextureCount(Type); ++i)
+    {
+        aiString str;
+        Material->GetTexture(Type, i, &str);
+
+        char TextureFilePath[256];
+        sprintf_s(TextureFilePath, 256, "%s\\%s", Directory, str.C_Str());
+
+        texture Texture;
+        Texture.Id = Win32TextureFromFile(TextureFilePath);
+        Texture.Type = TypeName;
+        //Texture.Path = str; // TODO(joe). might have to memcopy this.
+
+        Textures.push_back(Texture);
+    }
+
+    return Textures;
+}
+//
+//
+//
 
 static bool GlobalRunning = true;
 static bool GlobalWindowHasFocus = false;
@@ -468,114 +629,12 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
             glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
             glEnable(GL_DEPTH_TEST);
 
-            // Initialize the cube.
-            GLfloat Vertices[] = {
-                // Positions           // Normals           // Texture Coords
-                -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
-                 0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 0.0f,
-                 0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
-                 0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
-                -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 1.0f,
-                -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
-
-                -0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,   0.0f, 0.0f,
-                 0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,   1.0f, 0.0f,
-                 0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,   1.0f, 1.0f,
-                 0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,   1.0f, 1.0f,
-                -0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,   0.0f, 1.0f,
-                -0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,   0.0f, 0.0f,
-
-                -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
-                -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
-                -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
-                -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
-                -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
-                -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
-
-                 0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
-                 0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
-                 0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
-                 0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
-                 0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
-                 0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
-
-                -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
-                 0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 1.0f,
-                 0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 0.0f,
-                 0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 0.0f,
-                -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 0.0f,
-                -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
-
-                -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f,
-                 0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 1.0f,
-                 0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
-                 0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
-                -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 0.0f,
-                -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f
-            };
-
-            glm::vec3 CubePositions[] = {
-                glm::vec3( 0.0f,  0.0f,  0.0f),
-                glm::vec3( 2.0f,  5.0f, -15.0f),
-                glm::vec3(-1.5f, -2.2f, -2.5f),
-                glm::vec3(-3.8f, -2.0f, -12.3f),
-                glm::vec3( 2.4f, -0.4f, -3.5f),
-                glm::vec3(-1.7f,  3.0f, -7.5f),
-                glm::vec3( 1.3f, -2.0f, -2.5f),
-                glm::vec3( 1.5f,  2.0f, -2.5f),
-                glm::vec3( 1.5f,  0.2f, -1.5f),
-                glm::vec3(-1.3f,  1.0f, -1.5f)
-            };
-
             glm::vec3 PointLightPositions[] = {
                 glm::vec3( 0.7f,  0.2f,  2.0f),
                 glm::vec3( 2.3f, -3.3f, -4.0f),
                 glm::vec3(-4.0f,  2.0f, -12.0f),
                 glm::vec3( 0.0f,  0.0f, -3.0f)
             };
-
-            loaded_image DiffuseImage = DEBUGLoadImage("container2.png");
-            GLuint DiffuseMap = Win32CreateTexture(DiffuseImage, GL_RGBA, GL_TEXTURE0);
-
-            loaded_image SpecularImage = DEBUGLoadImage("container2_specular.png");
-            GLuint SpecularMap = Win32CreateTexture(SpecularImage, GL_RGBA, GL_TEXTURE1);
-
-            GLuint VAO;
-            glGenVertexArrays(1, &VAO);
-            glBindVertexArray(VAO);
-
-            // VBO: Vertex Buffer Object
-            GLuint VBO;
-            glGenBuffers(1, &VBO);
-            glBindBuffer(GL_ARRAY_BUFFER, VBO);
-            glBufferData(GL_ARRAY_BUFFER, sizeof(Vertices), Vertices, GL_STATIC_DRAW);
-            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8*sizeof(GLfloat), 0);
-            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8*sizeof(GLfloat), (void *)(3*sizeof(GLfloat)));
-            glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8*sizeof(GLfloat), (void *)(6*sizeof(GLfloat)));
-            glEnableVertexAttribArray(0);
-            glEnableVertexAttribArray(1);
-            glEnableVertexAttribArray(2);
-
-            glBindVertexArray(0);
-
-            GLuint LightVAO;
-            glGenVertexArrays(1, &LightVAO);
-            glBindVertexArray(LightVAO);
-            glBindBuffer(GL_ARRAY_BUFFER, VBO);
-            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8*sizeof(GLfloat), 0);
-            glEnableVertexAttribArray(0);
-            glBindVertexArray(0);
-
-            GLuint VertexShader = Win32CompileShader(GL_VERTEX_SHADER, "lighting.vert");
-            GLuint FragmentShader = Win32CompileShader(GL_FRAGMENT_SHADER, "lighting.frag");
-
-            GLuint LightingShaders[] = { VertexShader, FragmentShader };
-            GLuint LightingProgram = Win32CreateProgram(LightingShaders, ArrayCount(LightingShaders));
-
-            GLuint LampVertexShader = Win32CompileShader(GL_VERTEX_SHADER, "lamp.vert");
-            GLuint LampFragmentShader = Win32CompileShader(GL_FRAGMENT_SHADER, "lamp.frag");
-            GLuint LampShaders[] = { LampVertexShader, LampFragmentShader };
-            GLuint LampProgram = Win32CreateProgram(LampShaders, ArrayCount(LampShaders));
 
             LARGE_INTEGER StartTime = Win32GetClock();
 
@@ -591,6 +650,13 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
             float CameraSpeed = 0.05f;
             int WindowCenterX = ScreenWidth / 2;
             int WindowCenterY = ScreenHeight / 2;
+
+            GLuint VertexShader = Win32CompileShader(GL_VERTEX_SHADER, "model.vert");
+            GLuint FragmentShader = Win32CompileShader(GL_FRAGMENT_SHADER, "model.frag");
+            GLuint Shaders[] = { VertexShader, FragmentShader };
+            GLuint ModelProgram = Win32CreateProgram(Shaders, 2);
+
+            Model TestModel("nanosuit/nanosuit.obj");
 
             game_controller_input Input = {};
             GlobalRunning = OpenGLContext != 0;
@@ -622,95 +688,26 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                 glm::vec3 LightPos(1.2f, 1.0f, 2.0f);
 #endif
 
-                glUseProgram(LightingProgram);
+                glUseProgram(ModelProgram);
 
                 // Set the view location.
-                GLint ViewPosLoc = glGetUniformLocation(LightingProgram, "viewPos");
+                GLint ViewPosLoc = glGetUniformLocation(ModelProgram, "viewPos");
                 glUniform3f(ViewPosLoc, Camera.Position.x, Camera.Position.y, Camera.Position.z);
 
-                glm::vec3 LightColor(1.0f, 1.0f, 1.0f);
-                glm::vec3 DiffuseColor = LightColor * glm::vec3(0.5f); // Decrease the influence.
-                glm::vec3 AmbientColor = DiffuseColor * glm::vec3(0.2f); // Low influence.
-
-                // Set the direction light properties (ambient, diffuse, specular).
-                glUniform3f(glGetUniformLocation(LightingProgram, "dirLight.direction"), -0.2f, -1.0f, -0.3f);
-                glUniform3f(glGetUniformLocation(LightingProgram, "dirLight.ambient"), AmbientColor.x, AmbientColor.y, AmbientColor.z);
-                glUniform3f(glGetUniformLocation(LightingProgram, "dirLight.diffuse"), DiffuseColor.x, DiffuseColor.y, DiffuseColor.z);
-                glUniform3f(glGetUniformLocation(LightingProgram, "dirLight.specular"), 1.0f, 1.0f, 1.0f);
-
-                // Set the point light properties.
-#define NR_POINT_LIGHTS 4
-#define POINT_LIGHT_UNIFORM(Buffer, Index, Uniform) sprintf_s(Buffer, (sizeof(Buffer) / sizeof(Buffer[0])), "pointLights[%i].%s", (Index), (Uniform))
-                for (int LightIndex = 0; LightIndex < NR_POINT_LIGHTS; ++LightIndex)
-                {
-                    char Buffer[64];
-
-                    // Position
-                    glm::vec3 *Position = PointLightPositions + LightIndex;
-                    POINT_LIGHT_UNIFORM(Buffer, LightIndex, "position");
-                    glUniform3f(glGetUniformLocation(LightingProgram, Buffer), Position->x, Position->y, Position->z);
-
-                    // Attenuation
-                    POINT_LIGHT_UNIFORM(Buffer, LightIndex, "constant");
-                    glUniform1f(glGetUniformLocation(LightingProgram, Buffer), 1.0f);
-                    POINT_LIGHT_UNIFORM(Buffer, LightIndex, "linear");
-                    glUniform1f(glGetUniformLocation(LightingProgram, Buffer), 0.09f);
-                    POINT_LIGHT_UNIFORM(Buffer, LightIndex, "quadratic");
-                    glUniform1f(glGetUniformLocation(LightingProgram, Buffer), 0.032f);
-
-                    // Light properties
-                    POINT_LIGHT_UNIFORM(Buffer, LightIndex, "ambient");
-                    glUniform3f(glGetUniformLocation(LightingProgram, Buffer), AmbientColor.x, AmbientColor.y, AmbientColor.z);
-                    POINT_LIGHT_UNIFORM(Buffer, LightIndex, "diffuse");
-                    glUniform3f(glGetUniformLocation(LightingProgram, Buffer), DiffuseColor.x, DiffuseColor.y, DiffuseColor.z);
-                    POINT_LIGHT_UNIFORM(Buffer, LightIndex, "specular");
-                    glUniform3f(glGetUniformLocation(LightingProgram, Buffer), 1.0f, 1.0f, 1.0f);
-                }
-
-#if 0
-                // Spotlight
-                GLint LightSpotDirLoc = glGetUniformLocation(LightingProgram, "light.direction");
-                GLint LightSpotCutOffLoc = glGetUniformLocation(LightingProgram, "light.cutOff");
-                GLint LightSpotOuterCutOffLoc = glGetUniformLocation(LightingProgram, "light.outerCutOff");
-
-                glUniform3f(LightPosLoc, Camera.Position.x, Camera.Position.y, Camera.Position.z);
-                glUniform3f(LightSpotDirLoc, Camera.Front.x, Camera.Front.y, Camera.Front.z);
-                glUniform1f(LightSpotCutOffLoc, glm::cos(DEG_TO_RAD(12.5f)));
-                glUniform1f(LightSpotOuterCutOffLoc, glm::cos(DEG_TO_RAD(17.5f)));
-#endif
-
-                // Set the material properties.
-                glUniform1i(glGetUniformLocation(LightingProgram, "material.diffuse"),   0);
-                glUniform1i(glGetUniformLocation(LightingProgram, "material.specular"),  1);
-                glUniform1f(glGetUniformLocation(LightingProgram, "material.shininess"), 32.0f);
-
-                GLuint ModelLoc = glGetUniformLocation(LightingProgram, "model");
-                GLuint ViewLoc = glGetUniformLocation(LightingProgram, "view");
-                GLuint ProjectionLoc = glGetUniformLocation(LightingProgram, "projection");
+                GLuint ModelLoc = glGetUniformLocation(ModelProgram, "model");
+                GLuint ViewLoc = glGetUniformLocation(ModelProgram, "view");
+                GLuint ProjectionLoc = glGetUniformLocation(ModelProgram, "projection");
 
                 glUniformMatrix4fv(ViewLoc, 1, GL_FALSE, glm::value_ptr(View));
                 glUniformMatrix4fv(ProjectionLoc, 1, GL_FALSE, glm::value_ptr(Projection));
 
-                glBindVertexArray(VAO);
-
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, DiffuseMap);
-                glActiveTexture(GL_TEXTURE1);
-                glBindTexture(GL_TEXTURE_2D, SpecularMap);
-
                 glm::mat4 Model;
-                for (int PositionIndex = 0; PositionIndex < ArrayCount(CubePositions); ++PositionIndex)
-                {
-                    Model = glm::mat4();
-                    Model = glm::translate(Model, CubePositions[PositionIndex]);
-                    GLfloat angle = 20.0f * PositionIndex;
-                    Model = glm::rotate(Model, DEG_TO_RAD(angle), glm::vec3(1.0f, 0.3f, 0.5f));
+                Model = glm::translate(Model, glm::vec3(0.0, -3.0f, 0.0));
+                Model = glm::scale(Model, glm::vec3(0.25f, 0.25f, 0.25f));
+                glUniformMatrix4fv(ModelLoc, 1, GL_FALSE, glm::value_ptr(Model));
 
-                    glUniformMatrix4fv(ModelLoc, 1, GL_FALSE, glm::value_ptr(Model));
-                    glDrawArrays(GL_TRIANGLES, 0, 36);
-                }
-
-#if 1
+                TestModel.Draw(ModelProgram);
+#if 0
                 glUseProgram(LampProgram);
                 glBindVertexArray(LightVAO);
 

@@ -357,11 +357,11 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
 
             // Texture
             loaded_image Container = DEBUGLoadImage("container.jpg");
-            GLuint Texture1 = Win32CreateTexture(Container, GL_RGB, GL_TEXTURE0);
+            GLuint Texture1 = Win32CreateTexture(Container, GL_RGB);
             DEBUGFreeImage(Container);
 
             loaded_image Face = DEBUGLoadImage("awesomeface.png", true);
-            GLuint Texture2 = Win32CreateTexture(Face, GL_RGBA, GL_TEXTURE1);
+            GLuint Texture2 = Win32CreateTexture(Face, GL_RGBA);
             DEBUGFreeImage(Face);
 
             glBindVertexArray(0);

@@ -421,10 +421,10 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
             };
 
             loaded_image DiffuseImage = DEBUGLoadImage("container2.png");
-            GLuint DiffuseMap = Win32CreateTexture(DiffuseImage, GL_RGBA, GL_TEXTURE0);
+            GLuint DiffuseMap = Win32CreateTexture(DiffuseImage, GL_RGBA);
 
             loaded_image SpecularImage = DEBUGLoadImage("container2_specular.png");
-            GLuint SpecularMap = Win32CreateTexture(SpecularImage, GL_RGBA, GL_TEXTURE1);
+            GLuint SpecularMap = Win32CreateTexture(SpecularImage, GL_RGBA);
 
             GLuint VAO;
             glGenVertexArrays(1, &VAO);
